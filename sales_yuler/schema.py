@@ -1,0 +1,48 @@
+CANONICAL_COLUMNS = [
+    "nro",
+    "cantidad",
+    "descripcion",
+    "tipo de joya",
+    "tipo de material",
+    "monto",
+    "monto sin igv",
+    "metodo de pago",
+    "hora",
+    "cliente",
+    "dni",
+    "telefono",
+    "encargado",
+]
+
+OUTPUT_COLUMNS = [
+    *CANONICAL_COLUMNS,
+    "fecha",
+    "fuente",
+    "documento",
+    "hoja",
+    "fecha de carga",
+]
+
+COLUMN_ALIASES = {
+    "nro": "nro",
+    "nro.": "nro",
+    "numero": "nro",
+    "cantidad": "cantidad",
+    "cantidad de productos": "cantidad",
+    "cantidad productos": "cantidad",
+    "descripcion": "descripcion",
+    "tipo de joya": "tipo de joya",
+    "tipo joya": "tipo de joya",
+    "tipo de material": "tipo de material",
+    "tipo material": "tipo de material",
+    "monto": "monto",
+    "monto sin igv": "monto sin igv",
+    "monto (sin i g v)": "monto sin igv",
+    "monto sin i g v": "monto sin igv",
+    "metodo de pago": "metodo de pago",
+    "hora": "hora",
+    "cliente": "cliente",
+    "dni": "dni",
+    "telefono": "telefono",
+    "encargado": "encargado",
+}

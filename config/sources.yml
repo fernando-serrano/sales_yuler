@@ -1,0 +1,12 @@
+sources:
+  # Ejemplo:
+  # - name: ventas_2024_12
+  #   url: "https://docs.google.com/spreadsheets/d/REEMPLAZAR/edit"
+  #   year: 2024
+  #   month: 12
+  #   enabled: true
+  - name: ejemplo_ventas
+    url: "https://docs.google.com/spreadsheets/d/REEMPLAZAR/edit"
+    year: 2024
+    month: 12
+    enabled: false
