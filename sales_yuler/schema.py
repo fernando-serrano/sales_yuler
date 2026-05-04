@@ -15,6 +15,7 @@ CANONICAL_COLUMNS = [
 ]
 
 OUTPUT_COLUMNS = [
+    "id registro",
     *CANONICAL_COLUMNS,
     "fecha",
     "fuente",
@@ -26,11 +27,13 @@ OUTPUT_COLUMNS = [
 COLUMN_ALIASES = {
     "nro": "nro",
     "nro.": "nro",
+    "n": "nro",
     "numero": "nro",
     "cantidad": "cantidad",
     "cantidad de productos": "cantidad",
     "cantidad productos": "cantidad",
     "descripcion": "descripcion",
+    "descripcion productos": "descripcion",
     "tipo de joya": "tipo de joya",
     "tipo joya": "tipo de joya",
     "tipo de material": "tipo de material",
@@ -42,6 +45,7 @@ COLUMN_ALIASES = {
     "metodo de pago": "metodo de pago",
     "hora": "hora",
     "cliente": "cliente",
+    "cliente 2": "cliente",
     "dni": "dni",
     "telefono": "telefono",
     "encargado": "encargado",

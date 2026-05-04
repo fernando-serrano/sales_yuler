@@ -5,8 +5,8 @@ sources:
   #   year: 2024
   #   month: 12
   #   enabled: true
-  - name: ejemplo_ventas
-    url: "https://docs.google.com/spreadsheets/d/REEMPLAZAR/edit"
-    year: 2024
-    month: 12
-    enabled: false
+  - name: ventas_prueba_2026_05
+    url: "https://docs.google.com/spreadsheets/d/1Lvr6Zy-tDtHlpUQFBKlgM1iY8FM4r8l6Vn6-tGVVHvQ/edit?gid=1552053166#gid=1552053166"
+    year: 2026
+    month: 5
+    enabled: true

@@ -1,10 +1,15 @@
+import logging
 from dataclasses import dataclass
+from typing import Any
 
 from sales_yuler.config import Settings, SourceConfig
 from sales_yuler.extractors import GoogleSheetsExtractor
 from sales_yuler.google_client import build_gspread_client
 from sales_yuler.loaders import GoogleSheetsLoader
 from sales_yuler.transformers import normalize_sales_rows
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -14,6 +19,7 @@ class PipelineResult:
 
 
 def run_pipeline(settings: Settings, sources: list[SourceConfig], mode: str) -> PipelineResult:
+    logger.info("Construyendo cliente de Google Sheets")
     client = build_gspread_client(
         service_account_json=settings.google_service_account_json,
         service_account_file=settings.google_service_account_file,
@@ -27,8 +33,25 @@ def run_pipeline(settings: Settings, sources: list[SourceConfig], mode: str) -> 
 
     all_rows = []
     for source in sources:
+        logger.info("Extrayendo fuente: %s", source.name)
         for batch in extractor.extract_source(source):
-            all_rows.extend(normalize_sales_rows(batch))
+            normalized_rows = normalize_sales_rows(batch)
+            logger.info(
+                "Hoja procesada: fuente=%s documento=%s hoja=%s filas_entrada=%s filas_salida=%s",
+                source.name,
+                batch.document_title,
+                batch.worksheet_title,
+                len(batch.rows),
+                len(normalized_rows),
+            )
+            all_rows.extend(normalized_rows)
 
+    _assign_record_ids(all_rows)
+    logger.info("Cargando %s filas en modo %s", len(all_rows), mode)
     rows_loaded = loader.load(all_rows, mode=mode)
     return PipelineResult(rows_loaded=rows_loaded, sources_processed=len(sources))
+
+
+def _assign_record_ids(rows: list[dict[str, Any]]) -> None:
+    for index, row in enumerate(rows, start=1):
+        row["id registro"] = index

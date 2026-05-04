@@ -3,5 +3,11 @@ secrets/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.pytest_tmp/
 .venv/
 venv/
+pytest-cache-files-*/
+logs/
+tests/logs_test/
+tests/.pytest_cache/
+tests/pytest-cache-files-*/

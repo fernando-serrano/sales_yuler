@@ -15,7 +15,7 @@ def normalize_sales_rows(batch: WorksheetRows) -> list[dict[str, Any]]:
 
     for raw_row in batch.rows:
         row = _normalize_row_keys(raw_row)
-        if _is_empty_sale_row(row):
+        if _is_empty_sale_row(row) or _is_cash_out_row(row):
             continue
 
         normalized = {column: row.get(column, "") for column in CANONICAL_COLUMNS}
@@ -49,13 +49,20 @@ def _normalize_key(value: str) -> str:
         for char in unicodedata.normalize("NFKD", value)
         if not unicodedata.combining(char)
     )
-    cleaned = re.sub(r"\s+", " ", without_accents.replace(".", " ").strip().lower())
+    only_words = re.sub(r"[^a-zA-Z0-9]+", " ", without_accents)
+    cleaned = re.sub(r"\s+", " ", only_words.strip().lower())
     return cleaned
 
 
 def _is_empty_sale_row(row: dict[str, Any]) -> bool:
     meaningful_fields = ["descripcion", "cliente", "monto", "cantidad"]
     return all(str(row.get(field, "")).strip() == "" for field in meaningful_fields)
+
+
+def _is_cash_out_row(row: dict[str, Any]) -> bool:
+    fields = ["descripcion", "cliente", "metodo de pago", "encargado"]
+    text = " ".join(str(row.get(field, "")).strip().lower() for field in fields)
+    return "salida de caja" in text or "salidas de caja" in text
 
 
 def _date_from_worksheet(year: int, month: int, worksheet_title: str) -> date | None:
@@ -75,8 +82,22 @@ def _normalize_money(value: Any) -> str:
     if not text:
         return ""
 
-    cleaned = text.replace("S/", "").replace("s/", "").replace(",", "").strip()
+    cleaned = (
+        text.replace("S/.", "")
+        .replace("s/.", "")
+        .replace("S/", "")
+        .replace("s/", "")
+        .strip()
+    )
+    cleaned = re.sub(r"\s+", "", cleaned)
+    if "," in cleaned:
+        cleaned = cleaned.replace(".", "").replace(",", ".")
+    else:
+        cleaned = cleaned.replace(",", "")
+
     try:
-        return str(Decimal(cleaned))
+        amount = Decimal(cleaned).quantize(Decimal("0.01"))
     except InvalidOperation:
         return text
+
+    return float(amount)

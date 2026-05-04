@@ -1,8 +1,12 @@
+import logging
 from typing import Any
 
 import gspread
 
 from sales_yuler.schema import OUTPUT_COLUMNS
+
+
+logger = logging.getLogger(__name__)
 
 
 class GoogleSheetsLoader:
@@ -14,14 +18,17 @@ class GoogleSheetsLoader:
         values = [[row.get(column, "") for column in OUTPUT_COLUMNS] for row in rows]
 
         if mode == "replace":
+            logger.info("Limpiando hoja destino y escribiendo %s filas", len(values))
             self._worksheet.clear()
             self._worksheet.update([OUTPUT_COLUMNS, *values], value_input_option="USER_ENTERED")
             return len(values)
 
         if not self._worksheet.get_all_values():
+            logger.info("Hoja destino vacia; escribiendo encabezados")
             self._worksheet.update([OUTPUT_COLUMNS], value_input_option="USER_ENTERED")
 
         if values:
+            logger.info("Agregando %s filas al final de la hoja destino", len(values))
             self._worksheet.append_rows(values, value_input_option="USER_ENTERED")
 
         return len(values)
