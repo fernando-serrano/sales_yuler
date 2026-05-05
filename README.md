@@ -5,7 +5,7 @@ ETL modular para consolidar ventas desde varios Google Sheets/Excel con muchas h
 ## Flujo
 
 1. Lee las fuentes declaradas en `config/sources.yml`.
-2. Recorre todas las pestañas de cada documento.
+2. Recorre todas las pestanas de cada documento.
 3. Normaliza las columnas esperadas.
 4. Agrega metadatos de trazabilidad.
 5. Sobrescribe o anexa datos en una hoja maestra de Google Sheets.
@@ -35,32 +35,114 @@ El proceso tambien agrega:
 - `hoja`
 - `fecha de carga`
 
-`id registro` es un consecutivo generado por el ETL para identificar cada fila del
-consolidado. `nro` es el correlativo de ventas validas dentro de cada dia/pestana.
+`id registro` es un consecutivo global generado por el ETL para identificar cada
+fila del consolidado. `nro` es el correlativo de ventas validas dentro de cada
+dia/pestana.
 
 ## Normalizacion de ventas
 
-La fuente puede tener columnas con nombres distintos o duplicados. Para la primera prueba se espera este formato de entrada:
+La fuente puede tener columnas con nombres distintos, acentos, mayusculas,
+simbolos o columnas duplicadas. El ETL primero traduce los encabezados al esquema
+canonico y luego aplica reglas de validacion, limpieza y trazabilidad.
+
+Formato de entrada esperado en las hojas de ventas:
 
 ```text
-N° | Cliente | Cantidad de productos | Descripción / Productos | Tipo de Joya | Tipo de Material | MONTO | Monto (Sin I.G.V) | Método de Pago | Hora | Cliente | DNI | Teléfono | Encargado | Salidas de caja
+Nro | Cliente | Cantidad de productos | Descripcion / Productos | Tipo de Joya | Tipo de Material | MONTO | Monto (Sin I.G.V) | Metodo de Pago | Hora | Cliente | DNI | Telefono | Encargado | Salidas de caja
 ```
 
-Reglas aplicadas:
+### 1. Estandarizacion de columnas
 
-- `N°` se normaliza como `nro`.
-- `nro` se recalcula por cada dia/pestana despues de omitir filas no validas, empezando en `1`.
-- `Cantidad de productos` se normaliza como `cantidad`.
-- `Descripción / Productos` se normaliza como `descripcion`.
-- `MONTO` se normaliza como `monto`.
-- `Monto (Sin I.G.V)` se normaliza como `monto sin igv`.
-- Si hay dos columnas `Cliente`, se toma la segunda como el `cliente` de la venta.
-- Una fila solo se considera venta valida si tiene al menos `descripcion` y un `monto` mayor a 0.
-- Si `cantidad` viene vacia, se normaliza como `1`.
-- `fecha` es la fecha de la venta, inferida desde el nombre de la pestana y formateada como `dd/mm/aaaa`.
-- `fecha de carga` es el momento en que el ETL cargo el registro al consolidado.
-- Las filas vacias o sin datos minimos de venta se omiten.
-- Las filas marcadas como `Salidas de caja` se omiten porque no son ventas.
+Los encabezados se limpian antes de mapearlos: se ignoran acentos, mayusculas,
+simbolos y espacios repetidos. Luego se convierten a estos campos canonicos:
+
+| Entrada posible | Campo canonico |
+| --- | --- |
+| `Nro`, `nro`, `nro.`, `numero` | `nro` |
+| `Cantidad de productos`, `cantidad productos` | `cantidad` |
+| `Descripcion / Productos`, `descripcion productos` | `descripcion` |
+| `Tipo de Joya`, `tipo joya` | `tipo de joya` |
+| `Tipo de Material`, `tipo material` | `tipo de material` |
+| `MONTO`, `monto` | `monto` |
+| `Monto (Sin I.G.V)`, `monto sin igv` | `monto sin igv` |
+| `Metodo de Pago`, `metodo de pago` | `metodo de pago` |
+| `Cliente` | `cliente` |
+| `DNI` | `dni` |
+| `Telefono` | `telefono` |
+| `Encargado` | `encargado` |
+
+Si una hoja trae dos columnas llamadas `Cliente`, Google Sheets las lee como
+`Cliente` y `Cliente 2`; el ETL toma `Cliente 2` como el `cliente` final de la
+venta.
+
+### 2. Validacion de ventas
+
+Una fila solo se considera venta valida si cumple estas condiciones:
+
+- Tiene `descripcion` con texto.
+- Tiene `monto` numerico mayor a `0`.
+- No esta marcada como `Salidas de caja`.
+
+Se omiten automaticamente:
+
+- Filas completamente vacias.
+- Filas con solo datos residuales, por ejemplo `cliente = 0` pero sin
+  `descripcion` ni `monto`.
+- Filas con `monto` vacio, no numerico o igual a `0`.
+- Filas donde aparezca `salida de caja` o `salidas de caja` en `descripcion`,
+  `cliente`, `metodo de pago` o `encargado`.
+
+### 3. Normalizacion de valores
+
+Reglas por campo:
+
+- `nro`: se recalcula despues del filtro de ventas validas. Empieza en `1` para
+  cada dia/pestana y aumenta solo por ventas validas.
+- `cantidad`: si viene vacia, se asume `1`.
+- `monto`: se convierte a numero decimal. Ejemplos: `S/.120,00` -> `120.0`,
+  `S/ 118.00` -> `118.0`.
+- `monto sin igv`: se convierte a numero decimal con la misma regla de `monto`.
+- `dni` y `telefono`: se guardan como texto limpio, sin espacios externos.
+
+### 4. Normalizacion de fechas
+
+`fecha` representa la fecha de la venta. Se infiere desde el nombre de la
+pestana y siempre se guarda en formato `dd/mm/aaaa`.
+
+Formatos aceptados:
+
+| Nombre de pestana | Resultado en `fecha` |
+| --- | --- |
+| `1`, `01` con `year: 2026` y `month: 2` | `01/02/2026` |
+| `1/5/26` | `01/05/2026` |
+| `01/05/2026` | `01/05/2026` |
+| `1-05-2026` | `01/05/2026` |
+| `2026-02-01` | `01/02/2026` |
+| `2026-02-20` | `20/02/2026` |
+
+Si la pestana solo tiene el dia (`1`, `01`, `15`, etc.), el ETL usa `year` y
+`month` desde `config/sources.yml`. Si la pestana trae una fecha completa, el ETL
+usa esa fecha completa.
+
+Antes de leer una pestana, el ETL valida que pertenezca al mes configurado para
+la fuente. Por ejemplo, en una fuente con `year: 2026` y `month: 1`, se procesan
+`1`, `31`, `1/01/2026` o `2026-01-31`, pero se omiten `1/02/2026`,
+`2026-02-01`, `29` si el mes no tiene 29 dias, y pestanas auxiliares como
+`Resumen`.
+
+`fecha de carga` no es la fecha de venta. Es el momento exacto en que el ETL
+cargo el registro al consolidado.
+
+### 5. Identificadores y trazabilidad
+
+- `id registro`: correlativo global del consolidado completo. Se asigna al final
+  del proceso.
+- `nro`: correlativo diario dentro de cada pestana, calculado solo con ventas
+  validas.
+- `fuente`: nombre de la fuente en `config/sources.yml`.
+- `documento`: titulo del Google Sheet de origen.
+- `hoja`: nombre de la pestana de origen.
+- `fecha de carga`: fecha y hora de ejecucion del ETL.
 
 La hoja destino debe tener estos campos:
 
@@ -96,7 +178,8 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-Si PowerShell bloquea la activacion por politicas de ejecucion, habilitala solo para esta sesion:
+Si PowerShell bloquea la activacion por politicas de ejecucion, habilitala solo
+para esta sesion:
 
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
@@ -113,7 +196,9 @@ python -m pip install -r requirements.txt
 
 6. Comparte los Google Sheets con el correo de la cuenta de servicio.
 
-El correo esta dentro del archivo configurado en `GOOGLE_SERVICE_ACCOUNT_FILE`, en el campo `client_email`. Debe tener permiso de lectura sobre las fuentes y permiso de edicion sobre la hoja destino.
+El correo esta dentro del archivo configurado en `GOOGLE_SERVICE_ACCOUNT_FILE`,
+en el campo `client_email`. Debe tener permiso de lectura sobre las fuentes y
+permiso de edicion sobre la hoja destino.
 
 7. Ejecuta:
 
@@ -138,14 +223,22 @@ Edita `config/sources.yml`:
 
 ```yaml
 sources:
-  - name: ventas_prueba_2026_05
-    url: "https://docs.google.com/spreadsheets/d/1Lvr6Zy-tDtHlpUQFBKlgM1iY8FM4r8l6Vn6-tGVVHvQ/edit?gid=1552053166#gid=1552053166"
+  - name: ventas_2026_01
+    url: "https://docs.google.com/spreadsheets/d/REEMPLAZAR/edit"
     year: 2026
-    month: 5
+    month: 1
+    enabled: true
+  - name: ventas_2026_02
+    url: "https://docs.google.com/spreadsheets/d/REEMPLAZAR/edit"
+    year: 2026
+    month: 2
     enabled: true
 ```
 
-Si cada pestana se llama `1`, `01`, `15`, etc., el ETL construye la fecha usando `year`, `month` y el nombre de la hoja. Si el nombre de la pestana trae una fecha completa como `1/5/26`, `01/05/2026` o `1/05/2026`, el ETL la normaliza a `01/05/2026`.
+Si cada pestana se llama `1`, `01`, `15`, etc., el ETL construye la fecha usando
+`year`, `month` y el nombre de la hoja. Si el nombre de la pestana trae una fecha
+completa como `1/5/26`, `01/05/2026`, `1/05/2026` o `2026-02-20`, el ETL la
+normaliza a `dd/mm/aaaa`.
 
 ## GitHub Actions
 
@@ -155,6 +248,9 @@ Configura estos secrets en GitHub:
 - `TARGET_SPREADSHEET_ID`
 - `TARGET_WORKSHEET_NAME`
 
-Para GitHub Actions no subas el archivo `secrets/*.json`. Copia el contenido completo del JSON de la cuenta de servicio en el secret `GOOGLE_SERVICE_ACCOUNT_JSON`.
+Para GitHub Actions no subas el archivo `secrets/*.json`. Copia el contenido
+completo del JSON de la cuenta de servicio en el secret
+`GOOGLE_SERVICE_ACCOUNT_JSON`.
 
-El workflow `.github/workflows/sync-sales.yml` corre diariamente y tambien puede ejecutarse manualmente.
+El workflow `.github/workflows/sync-sales.yml` corre diariamente y tambien puede
+ejecutarse manualmente.

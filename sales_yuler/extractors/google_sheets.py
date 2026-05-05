@@ -7,6 +7,7 @@ import gspread
 from gspread.exceptions import APIError
 
 from sales_yuler.config import SourceConfig
+from sales_yuler.date_utils import worksheet_title_belongs_to_month
 
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,16 @@ class GoogleSheetsExtractor:
         logger.info("Documento abierto: %s", spreadsheet.title)
 
         for worksheet in spreadsheet.worksheets():
+            if not _worksheet_belongs_to_source_month(source, worksheet.title):
+                logger.info(
+                    "Hoja omitida por no pertenecer al mes configurado: fuente=%s year=%s month=%s hoja=%s",
+                    source.name,
+                    source.year,
+                    source.month,
+                    worksheet.title,
+                )
+                continue
+
             time.sleep(READ_DELAY_SECONDS)
             rows = _records_from_values(_get_all_values_with_retry(worksheet))
             logger.info("Hoja leida: %s filas=%s", worksheet.title, len(rows))
@@ -49,6 +60,10 @@ class GoogleSheetsExtractor:
             )
 
         return batches
+
+
+def _worksheet_belongs_to_source_month(source: SourceConfig, worksheet_title: str) -> bool:
+    return worksheet_title_belongs_to_month(source.year, source.month, worksheet_title)
 
 
 def _get_all_values_with_retry(worksheet: Any) -> list[list[Any]]:

@@ -1,15 +1,20 @@
 import re
 import unicodedata
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from sales_yuler.date_utils import date_from_worksheet_title, format_date_ddmmyyyy
 from sales_yuler.extractors.google_sheets import WorksheetRows
 from sales_yuler.schema import CANONICAL_COLUMNS, COLUMN_ALIASES, OUTPUT_COLUMNS
 
 
 def normalize_sales_rows(batch: WorksheetRows) -> list[dict[str, Any]]:
-    sale_date = _date_from_worksheet(batch.source.year, batch.source.month, batch.worksheet_title)
+    sale_date = date_from_worksheet_title(
+        batch.source.year,
+        batch.source.month,
+        batch.worksheet_title,
+    )
     loaded_at = datetime.now().isoformat(timespec="seconds")
     normalized_rows: list[dict[str, Any]] = []
 
@@ -20,7 +25,7 @@ def normalize_sales_rows(batch: WorksheetRows) -> list[dict[str, Any]]:
 
         normalized = {column: row.get(column, "") for column in CANONICAL_COLUMNS}
         normalized["nro"] = len(normalized_rows) + 1
-        normalized["fecha"] = _format_date(sale_date)
+        normalized["fecha"] = format_date_ddmmyyyy(sale_date)
         normalized["cantidad"] = _normalize_quantity(normalized["cantidad"])
         normalized["monto"] = _normalize_money(normalized["monto"])
         normalized["monto sin igv"] = _normalize_money(normalized["monto sin igv"])
@@ -66,54 +71,6 @@ def _is_cash_out_row(row: dict[str, Any]) -> bool:
     fields = ["descripcion", "cliente", "metodo de pago", "encargado"]
     text = " ".join(str(row.get(field, "")).strip().lower() for field in fields)
     return "salida de caja" in text or "salidas de caja" in text
-
-
-def _date_from_worksheet(year: int, month: int, worksheet_title: str) -> date | None:
-    full_date = _parse_date_text(worksheet_title)
-    if full_date:
-        return full_date
-
-    match = re.search(r"\d{1,2}", worksheet_title)
-    if not match:
-        return None
-
-    day = int(match.group())
-    try:
-        return date(year, month, day)
-    except ValueError:
-        return None
-
-
-def _parse_date_text(value: Any) -> date | None:
-    text = str(value).strip()
-    iso_match = re.search(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b", text)
-    if iso_match:
-        year = int(iso_match.group(1))
-        month = int(iso_match.group(2))
-        day = int(iso_match.group(3))
-        try:
-            return date(year, month, day)
-        except ValueError:
-            return None
-
-    match = re.search(r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})\b", text)
-    if not match:
-        return None
-
-    day = int(match.group(1))
-    month = int(match.group(2))
-    year = int(match.group(3))
-    if year < 100:
-        year += 2000
-
-    try:
-        return date(year, month, day)
-    except ValueError:
-        return None
-
-
-def _format_date(value: date | None) -> str:
-    return value.strftime("%d/%m/%Y") if value else ""
 
 
 def _normalize_quantity(value: Any) -> Any:
