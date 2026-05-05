@@ -1,13 +1,18 @@
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any
 
 import gspread
+from gspread.exceptions import APIError
 
 from sales_yuler.config import SourceConfig
 
 
 logger = logging.getLogger(__name__)
+READ_DELAY_SECONDS = 1.3
+MAX_READ_ATTEMPTS = 5
+QUOTA_RETRY_SECONDS = 65
 
 
 @dataclass(frozen=True)
@@ -28,7 +33,8 @@ class GoogleSheetsExtractor:
         logger.info("Documento abierto: %s", spreadsheet.title)
 
         for worksheet in spreadsheet.worksheets():
-            rows = _records_from_values(worksheet.get_all_values())
+            time.sleep(READ_DELAY_SECONDS)
+            rows = _records_from_values(_get_all_values_with_retry(worksheet))
             logger.info("Hoja leida: %s filas=%s", worksheet.title, len(rows))
             if not rows:
                 continue
@@ -43,6 +49,43 @@ class GoogleSheetsExtractor:
             )
 
         return batches
+
+
+def _get_all_values_with_retry(worksheet: Any) -> list[list[Any]]:
+    for attempt in range(1, MAX_READ_ATTEMPTS + 1):
+        try:
+            return worksheet.get_all_values()
+        except APIError as error:
+            if not _is_quota_error(error) or attempt == MAX_READ_ATTEMPTS:
+                raise
+
+            wait_seconds = _retry_wait_seconds(error)
+            logger.warning(
+                "Cuota de lectura excedida al leer hoja=%s. Reintentando en %s segundos (%s/%s)",
+                worksheet.title,
+                wait_seconds,
+                attempt,
+                MAX_READ_ATTEMPTS,
+            )
+            time.sleep(wait_seconds)
+
+    return []
+
+
+def _is_quota_error(error: APIError) -> bool:
+    response = getattr(error, "response", None)
+    status_code = getattr(response, "status_code", None)
+    return status_code == 429 or "[429]" in str(error)
+
+
+def _retry_wait_seconds(error: APIError) -> int:
+    response = getattr(error, "response", None)
+    headers = getattr(response, "headers", {}) or {}
+    retry_after = headers.get("Retry-After")
+    if retry_after and retry_after.isdigit():
+        return max(int(retry_after), QUOTA_RETRY_SECONDS)
+
+    return QUOTA_RETRY_SECONDS
 
 
 def _records_from_values(values: list[list[Any]]) -> list[dict[str, Any]]:

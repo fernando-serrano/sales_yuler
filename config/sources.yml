@@ -5,6 +5,16 @@ sources:
   #   year: 2024
   #   month: 12
   #   enabled: true
+  - name: ventas_2026_02
+    url: "https://docs.google.com/spreadsheets/d/1NzY7KVbp1komrOQpZ3nSUtT6fmAcfT6QUKKnuYxb-Oo/edit?gid=0#gid=0"
+    year: 2026
+    month: 2
+    enabled: true
+  - name: ventas_2026_03
+    url: "https://docs.google.com/spreadsheets/d/1CE0mnquGJKqAivHWRuR5EQGA2eYvln9_8JgiB565qkI/edit?gid=0#gid=0"
+    year: 2026
+    month: 3
+    enabled: true
   - name: ventas_prueba_2026_05
     url: "https://docs.google.com/spreadsheets/d/1Lvr6Zy-tDtHlpUQFBKlgM1iY8FM4r8l6Vn6-tGVVHvQ/edit?gid=1552053166#gid=1552053166"
     year: 2026

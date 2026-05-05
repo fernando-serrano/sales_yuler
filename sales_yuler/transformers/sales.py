@@ -15,11 +15,13 @@ def normalize_sales_rows(batch: WorksheetRows) -> list[dict[str, Any]]:
 
     for raw_row in batch.rows:
         row = _normalize_row_keys(raw_row)
-        if _is_empty_sale_row(row) or _is_cash_out_row(row):
+        if _is_cash_out_row(row) or not _is_valid_sale_row(row):
             continue
 
         normalized = {column: row.get(column, "") for column in CANONICAL_COLUMNS}
-        normalized["fecha"] = sale_date.isoformat() if sale_date else ""
+        normalized["nro"] = len(normalized_rows) + 1
+        normalized["fecha"] = _format_date(sale_date)
+        normalized["cantidad"] = _normalize_quantity(normalized["cantidad"])
         normalized["monto"] = _normalize_money(normalized["monto"])
         normalized["monto sin igv"] = _normalize_money(normalized["monto sin igv"])
         normalized["dni"] = str(normalized["dni"]).strip()
@@ -54,9 +56,10 @@ def _normalize_key(value: str) -> str:
     return cleaned
 
 
-def _is_empty_sale_row(row: dict[str, Any]) -> bool:
-    meaningful_fields = ["descripcion", "cliente", "monto", "cantidad"]
-    return all(str(row.get(field, "")).strip() == "" for field in meaningful_fields)
+def _is_valid_sale_row(row: dict[str, Any]) -> bool:
+    description = str(row.get("descripcion", "")).strip()
+    amount = _money_as_decimal(row.get("monto", ""))
+    return bool(description) and amount is not None and amount > 0
 
 
 def _is_cash_out_row(row: dict[str, Any]) -> bool:
@@ -66,6 +69,10 @@ def _is_cash_out_row(row: dict[str, Any]) -> bool:
 
 
 def _date_from_worksheet(year: int, month: int, worksheet_title: str) -> date | None:
+    full_date = _parse_date_text(worksheet_title)
+    if full_date:
+        return full_date
+
     match = re.search(r"\d{1,2}", worksheet_title)
     if not match:
         return None
@@ -77,10 +84,55 @@ def _date_from_worksheet(year: int, month: int, worksheet_title: str) -> date | 
         return None
 
 
-def _normalize_money(value: Any) -> str:
+def _parse_date_text(value: Any) -> date | None:
+    text = str(value).strip()
+    iso_match = re.search(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b", text)
+    if iso_match:
+        year = int(iso_match.group(1))
+        month = int(iso_match.group(2))
+        day = int(iso_match.group(3))
+        try:
+            return date(year, month, day)
+        except ValueError:
+            return None
+
+    match = re.search(r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})\b", text)
+    if not match:
+        return None
+
+    day = int(match.group(1))
+    month = int(match.group(2))
+    year = int(match.group(3))
+    if year < 100:
+        year += 2000
+
+    try:
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
+def _format_date(value: date | None) -> str:
+    return value.strftime("%d/%m/%Y") if value else ""
+
+
+def _normalize_quantity(value: Any) -> Any:
+    text = str(value).strip()
+    return 1 if not text else value
+
+
+def _normalize_money(value: Any) -> Any:
+    amount = _money_as_decimal(value)
+    if amount is None:
+        return str(value).strip()
+
+    return float(amount)
+
+
+def _money_as_decimal(value: Any) -> Decimal | None:
     text = str(value).strip()
     if not text:
-        return ""
+        return None
 
     cleaned = (
         text.replace("S/.", "")
@@ -98,6 +150,6 @@ def _normalize_money(value: Any) -> str:
     try:
         amount = Decimal(cleaned).quantize(Decimal("0.01"))
     except InvalidOperation:
-        return text
+        return None
 
-    return float(amount)
+    return amount

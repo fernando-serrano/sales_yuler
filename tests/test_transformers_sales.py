@@ -31,7 +31,7 @@ def test_normalize_sales_rows_maps_aliases_and_metadata():
     rows = normalize_sales_rows(batch)
 
     assert len(rows) == 1
-    assert rows[0]["fecha"] == "2024-12-05"
+    assert rows[0]["fecha"] == "05/12/2024"
     assert rows[0]["descripcion"] == "Anillo"
     assert rows[0]["monto"] == 118.0
     assert rows[0]["metodo de pago"] == "Yape"
@@ -90,8 +90,8 @@ def test_normalize_sales_rows_uses_second_client_and_skips_cash_out_rows():
     rows = normalize_sales_rows(batch)
 
     assert len(rows) == 1
-    assert rows[0]["fecha"] == "2026-05-03"
-    assert rows[0]["nro"] == "1"
+    assert rows[0]["fecha"] == "03/05/2026"
+    assert rows[0]["nro"] == 1
     assert rows[0]["cantidad"] == "2"
     assert rows[0]["descripcion"] == "Pulsera"
     assert rows[0]["tipo de joya"] == "Pulsera"
@@ -141,3 +141,122 @@ def test_normalize_sales_rows_converts_peruvian_currency_to_numbers():
     assert rows[0]["monto sin igv"] == 42.37
     assert rows[1]["monto"] == 175.0
     assert rows[1]["monto sin igv"] == 148.31
+
+
+def test_normalize_sales_rows_requires_description_and_amount_for_valid_sales():
+    source = SourceConfig(
+        name="ventas_prueba",
+        url="https://docs.google.com/spreadsheets/d/example/edit",
+        year=2026,
+        month=5,
+    )
+    batch = WorksheetRows(
+        source=source,
+        document_title="Ventas prueba",
+        worksheet_title="01",
+        rows=[
+            {
+                "nro": "77",
+                "cliente": "0",
+                "cantidad": "",
+                "descripcion": "",
+                "monto": "",
+            },
+            {
+                "nro": "78",
+                "cantidad": "",
+                "descripcion": "Aretes",
+                "monto": "S/.80,00",
+            },
+            {
+                "nro": "79",
+                "cantidad": "2",
+                "descripcion": "Collar",
+                "monto": "0",
+            },
+        ],
+    )
+
+    rows = normalize_sales_rows(batch)
+
+    assert len(rows) == 1
+    assert rows[0]["nro"] == 1
+    assert rows[0]["cantidad"] == 1
+    assert rows[0]["descripcion"] == "Aretes"
+    assert rows[0]["monto"] == 80.0
+
+
+def test_normalize_sales_rows_formats_full_date_worksheet_titles():
+    source = SourceConfig(
+        name="ventas_prueba",
+        url="https://docs.google.com/spreadsheets/d/example/edit",
+        year=2026,
+        month=5,
+    )
+    batch = WorksheetRows(
+        source=source,
+        document_title="Ventas prueba",
+        worksheet_title="1/5/26",
+        rows=[
+            {
+                "cantidad": "1",
+                "descripcion": "Anillo",
+                "monto": "S/.50,00",
+            },
+        ],
+    )
+
+    rows = normalize_sales_rows(batch)
+
+    assert rows[0]["fecha"] == "01/05/2026"
+
+
+def test_normalize_sales_rows_formats_iso_worksheet_titles():
+    source = SourceConfig(
+        name="ventas_2026_02",
+        url="https://docs.google.com/spreadsheets/d/example/edit",
+        year=2026,
+        month=2,
+    )
+    batch = WorksheetRows(
+        source=source,
+        document_title="Ventas febrero",
+        worksheet_title="2026-02-01",
+        rows=[
+            {
+                "cantidad": "1",
+                "descripcion": "Anillo",
+                "monto": "S/.50,00",
+            },
+        ],
+    )
+
+    rows = normalize_sales_rows(batch)
+
+    assert rows[0]["fecha"] == "01/02/2026"
+
+
+def test_normalize_sales_rows_renumbers_valid_sales_within_the_day():
+    source = SourceConfig(
+        name="ventas_prueba",
+        url="https://docs.google.com/spreadsheets/d/example/edit",
+        year=2026,
+        month=5,
+    )
+    batch = WorksheetRows(
+        source=source,
+        document_title="Ventas prueba",
+        worksheet_title="07",
+        rows=[
+            {"nro": "4", "descripcion": "Anillo", "monto": "S/.50,00"},
+            {"nro": "", "descripcion": "", "monto": ""},
+            {"nro": "10", "descripcion": "Cadena", "monto": "S/.120,00"},
+            {"nro": "11", "descripcion": "Pulsera", "monto": "0"},
+            {"nro": "", "descripcion": "Aretes", "monto": "S/.80,00"},
+        ],
+    )
+
+    rows = normalize_sales_rows(batch)
+
+    assert [row["nro"] for row in rows] == [1, 2, 3]
+    assert [row["descripcion"] for row in rows] == ["Anillo", "Cadena", "Aretes"]

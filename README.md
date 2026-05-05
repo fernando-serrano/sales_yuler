@@ -36,7 +36,7 @@ El proceso tambien agrega:
 - `fecha de carga`
 
 `id registro` es un consecutivo generado por el ETL para identificar cada fila del
-consolidado. `nro` conserva el orden original que viene de cada hoja fuente.
+consolidado. `nro` es el correlativo de ventas validas dentro de cada dia/pestana.
 
 ## Normalizacion de ventas
 
@@ -49,12 +49,17 @@ N° | Cliente | Cantidad de productos | Descripción / Productos | Tipo de Joya 
 Reglas aplicadas:
 
 - `N°` se normaliza como `nro`.
+- `nro` se recalcula por cada dia/pestana despues de omitir filas no validas, empezando en `1`.
 - `Cantidad de productos` se normaliza como `cantidad`.
 - `Descripción / Productos` se normaliza como `descripcion`.
 - `MONTO` se normaliza como `monto`.
 - `Monto (Sin I.G.V)` se normaliza como `monto sin igv`.
 - Si hay dos columnas `Cliente`, se toma la segunda como el `cliente` de la venta.
-- Las filas vacias se omiten.
+- Una fila solo se considera venta valida si tiene al menos `descripcion` y un `monto` mayor a 0.
+- Si `cantidad` viene vacia, se normaliza como `1`.
+- `fecha` es la fecha de la venta, inferida desde el nombre de la pestana y formateada como `dd/mm/aaaa`.
+- `fecha de carga` es el momento en que el ETL cargo el registro al consolidado.
+- Las filas vacias o sin datos minimos de venta se omiten.
 - Las filas marcadas como `Salidas de caja` se omiten porque no son ventas.
 
 La hoja destino debe tener estos campos:
@@ -140,7 +145,7 @@ sources:
     enabled: true
 ```
 
-Si cada pestaña se llama `1`, `01`, `15`, etc., el ETL construye la fecha usando `year`, `month` y el nombre de la hoja.
+Si cada pestana se llama `1`, `01`, `15`, etc., el ETL construye la fecha usando `year`, `month` y el nombre de la hoja. Si el nombre de la pestana trae una fecha completa como `1/5/26`, `01/05/2026` o `1/05/2026`, el ETL la normaliza a `01/05/2026`.
 
 ## GitHub Actions
 
