@@ -1,5 +1,7 @@
 import logging
+import re
 import time
+import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
@@ -8,6 +10,7 @@ from gspread.exceptions import APIError
 
 from sales_yuler.config import SourceConfig
 from sales_yuler.date_utils import worksheet_title_belongs_to_month
+from sales_yuler.schema import COLUMN_ALIASES
 
 
 logger = logging.getLogger(__name__)
@@ -107,10 +110,11 @@ def _records_from_values(values: list[list[Any]]) -> list[dict[str, Any]]:
     if not values:
         return []
 
-    headers = _unique_headers(values[0])
+    header_index = _find_header_row_index(values)
+    headers = _unique_headers(values[header_index])
     records: list[dict[str, Any]] = []
 
-    for values_row in values[1:]:
+    for values_row in values[header_index + 1 :]:
         if not any(str(value).strip() for value in values_row):
             continue
 
@@ -121,6 +125,42 @@ def _records_from_values(values: list[list[Any]]) -> list[dict[str, Any]]:
         records.append(dict(zip(headers, row[: len(headers)])))
 
     return records
+
+
+def _find_header_row_index(values: list[list[Any]]) -> int:
+    for index, row in enumerate(values):
+        canonical_columns = {
+            COLUMN_ALIASES.get(_normalize_header_key(str(cell)))
+            for cell in row
+            if str(cell).strip()
+        }
+        canonical_columns.discard(None)
+
+        if {"descripcion", "monto"}.issubset(canonical_columns) and len(canonical_columns) >= 3:
+            return index
+
+    return 0
+
+
+def _normalize_header_key(value: str) -> str:
+    value = _repair_mojibake(value)
+    without_accents = "".join(
+        char
+        for char in unicodedata.normalize("NFKD", value)
+        if not unicodedata.combining(char)
+    )
+    only_words = re.sub(r"[^a-zA-Z0-9]+", " ", without_accents)
+    return re.sub(r"\s+", " ", only_words.strip().lower())
+
+
+def _repair_mojibake(value: str) -> str:
+    if "Ã" not in value and "Â" not in value:
+        return value
+
+    try:
+        return value.encode("latin1").decode("utf-8")
+    except UnicodeError:
+        return value
 
 
 def _unique_headers(headers: list[Any]) -> list[str]:

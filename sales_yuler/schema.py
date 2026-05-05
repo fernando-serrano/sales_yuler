@@ -43,6 +43,7 @@ COLUMN_ALIASES = {
     "monto (sin i g v)": "monto sin igv",
     "monto sin i g v": "monto sin igv",
     "metodo de pago": "metodo de pago",
+    "met pago": "metodo de pago",
     "hora": "hora",
     "cliente": "cliente",
     "cliente 2": "cliente",

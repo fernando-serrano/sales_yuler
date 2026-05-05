@@ -51,6 +51,7 @@ def _normalize_row_keys(raw_row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _normalize_key(value: str) -> str:
+    value = _repair_mojibake(value)
     without_accents = "".join(
         char
         for char in unicodedata.normalize("NFKD", value)
@@ -59,6 +60,16 @@ def _normalize_key(value: str) -> str:
     only_words = re.sub(r"[^a-zA-Z0-9]+", " ", without_accents)
     cleaned = re.sub(r"\s+", " ", only_words.strip().lower())
     return cleaned
+
+
+def _repair_mojibake(value: str) -> str:
+    if "Ã" not in value and "Â" not in value:
+        return value
+
+    try:
+        return value.encode("latin1").decode("utf-8")
+    except UnicodeError:
+        return value
 
 
 def _is_valid_sale_row(row: dict[str, Any]) -> bool:

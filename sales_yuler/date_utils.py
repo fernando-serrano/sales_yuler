@@ -42,7 +42,10 @@ def parse_full_date_text(value: Any) -> date | None:
         day = int(iso_match.group(3))
         return _safe_date(year, month, day)
 
-    date_match = re.search(r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})\b", text)
+    date_match = re.search(
+        r"(?<!\d)(\d{1,2})\s*[^a-zA-Z0-9]+\s*(\d{1,3})\s*[^a-zA-Z0-9]+\s*(\d{2}|\d{4})(?!\d)",
+        text,
+    )
     if not date_match:
         return None
 

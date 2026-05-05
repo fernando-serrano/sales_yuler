@@ -5,6 +5,101 @@ sources:
   #   year: 2024
   #   month: 12
   #   enabled: true
+  - name: ventas_2024_02
+    url: "https://docs.google.com/spreadsheets/d/1rlkgbB8HPqdHMimUBFHk9FToF3cqaZkhMw6gOlZzbDU/edit?gid=1412329230#gid=1412329230"
+    year: 2024
+    month: 2
+    enabled: true
+  - name: ventas_2024_03
+    url: "https://docs.google.com/spreadsheets/d/1TP-bXJo18bUCzgq8-g2cRHMgZ3hMKWl-eBKV-0lT4ow/edit?gid=0#gid=0"
+    year: 2024
+    month: 3
+    enabled: true
+  - name: ventas_2024_04
+    url: "https://docs.google.com/spreadsheets/d/1TP-bXJo18bUCzgq8-g2cRHMgZ3hMKWl-eBKV-0lT4ow/edit?gid=0#gid=0"
+    year: 2024
+    month: 4
+    enabled: true
+  - name: ventas_2024_05
+    url: "https://docs.google.com/spreadsheets/d/10RxpFZWup3e_1TDjgg5qrbQwvjoRgrtnvbeN0dLWTVc/edit?gid=456405771#gid=456405771"
+    year: 2024
+    month: 5
+    enabled: true
+  - name: ventas_2024_06
+    url: "https://docs.google.com/spreadsheets/d/10RxpFZWup3e_1TDjgg5qrbQwvjoRgrtnvbeN0dLWTVc/edit?gid=456405771#gid=456405771"
+    year: 2024
+    month: 6
+    enabled: true
+  - name: ventas_2024_07
+    url: "https://docs.google.com/spreadsheets/d/10RxpFZWup3e_1TDjgg5qrbQwvjoRgrtnvbeN0dLWTVc/edit?gid=456405771#gid=456405771"
+    year: 2024
+    month: 7
+    enabled: true
+  - name: ventas_2024_08
+    url: "https://docs.google.com/spreadsheets/d/1jaZB2A2fQDqCEP_ovGmeCHUi3TVHIbg2fhuA2S8OYnI/edit?gid=0#gid=0"
+    year: 2024
+    month: 8
+    enabled: true
+  - name: ventas_2024_09
+    url: "https://docs.google.com/spreadsheets/d/1lsYMQPNN9sZYCjWBcGOa01WkwxDaYB7BuNQZUGQxNz0/edit?gid=0#gid=0"
+    year: 2024
+    month: 9
+    enabled: true
+  - name: ventas_2024_10
+    url: "https://docs.google.com/spreadsheets/d/1lsYMQPNN9sZYCjWBcGOa01WkwxDaYB7BuNQZUGQxNz0/edit?gid=0#gid=0"
+    year: 2024
+    month: 10
+    enabled: true
+  - name: ventas_2024_11
+    url: "https://docs.google.com/spreadsheets/d/1M1blPmbB9U14dxOHBZZi1jfOQjr1c08AfsS_QrHC2lk/edit?gid=0#gid=0"
+    year: 2024
+    month: 11
+    enabled: true
+  - name: ventas_2024_12
+    url: "https://docs.google.com/spreadsheets/d/1uRVTcNISxSyOjLrKVfeCC0_hy1LX0z0p2Cjt3YH9DmQ/edit?gid=0#gid=0"
+    year: 2024
+    month: 12
+    enabled: true
+  - name: ventas_2025_01
+    url: "https://docs.google.com/spreadsheets/d/1c1xMU-GR7ijir7BdMtn5EjmLQA_-LcycCBLU4dRhMyw/edit?gid=0#gid=0"
+    year: 2025
+    month: 1
+    enabled: true
+  - name: ventas_2025_02
+    url: "https://docs.google.com/spreadsheets/d/1SWDWo5Tk6eJ3yqC5iLX4_ZpatrATKfk4G97YcpchY1M/edit?gid=1848169419#gid=1848169419"
+    year: 2025
+    month: 2
+    enabled: true
+  - name: ventas_2025_03
+    url: "https://docs.google.com/spreadsheets/d/1SWDWo5Tk6eJ3yqC5iLX4_ZpatrATKfk4G97YcpchY1M/edit?gid=1848169419#gid=1848169419"
+    year: 2025
+    month: 3
+    enabled: true
+  - name: ventas_2025_04
+    url: "https://docs.google.com/spreadsheets/d/13CocIi4F7N3RKOTfxNp1WzxeZiA0o-MrPZiQwYZv5dg/edit?gid=0#gid=0"
+    year: 2025
+    month: 4
+    enabled: true
+  - name: ventas_2025_05
+    url: "https://docs.google.com/spreadsheets/d/1OG5n-_J0nRgALNa3snsC-TxtDLQIdPlyUkG5Bj1g7Lw/edit?gid=0#gid=0"
+    year: 2025
+    month: 5
+    enabled: true
+  - name: ventas_2025_06
+    url: "https://docs.google.com/spreadsheets/d/1OG5n-_J0nRgALNa3snsC-TxtDLQIdPlyUkG5Bj1g7Lw/edit?gid=0#gid=0"
+    year: 2025
+    month: 6
+    enabled: true
+  - name: ventas_2025_07
+    url: "https://docs.google.com/spreadsheets/d/1ZPJTOcIbr1-i06_4SjkSptqsa-hpgH6ln1ZdFee25d8/edit?gid=1226942813#gid=1226942813"
+    year: 2025
+    month: 7
+    enabled: true
+  - name: ventas_2025_08
+    url: "https://docs.google.com/spreadsheets/d/1VwUsrgxgpMxJWsT3t38VI_4wJwNS3WaYZ-kOR4ftp5A/edit?gid=0#gid=0"
+    year: 2025
+    month: 8
+    enabled: true
   - name: ventas_2025_09
     url: "https://docs.google.com/spreadsheets/d/1KWWcMXJ25Wu9JZVPJ0_E0mje3xn-yntbCBdWI1NO2UY/edit?gid=623811279#gid=623811279"
     year: 2025
