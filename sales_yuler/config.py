@@ -25,8 +25,8 @@ class SourceConfig:
 
 
 def load_settings() -> Settings:
-    service_account_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
-    service_account_file = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE")
+    service_account_json = _optional_env("GOOGLE_SERVICE_ACCOUNT_JSON")
+    service_account_file = _optional_env("GOOGLE_SERVICE_ACCOUNT_FILE")
     if not service_account_json and not service_account_file:
         raise RuntimeError(
             "Falta configurar GOOGLE_SERVICE_ACCOUNT_JSON o GOOGLE_SERVICE_ACCOUNT_FILE"
@@ -71,3 +71,12 @@ def _required_env(name: str) -> str:
     if not value:
         raise RuntimeError(f"Falta configurar la variable de entorno {name}")
     return value
+
+
+def _optional_env(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is None:
+        return None
+
+    stripped = value.strip()
+    return stripped or None

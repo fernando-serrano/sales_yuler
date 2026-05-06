@@ -1,12 +1,21 @@
 import re
-import unicodedata
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sales_yuler.date_utils import date_from_worksheet_title, format_date_ddmmyyyy
+from sales_yuler.date_utils import date_from_worksheet_title
 from sales_yuler.extractors.google_sheets import WorksheetRows
 from sales_yuler.schema import CANONICAL_COLUMNS, COLUMN_ALIASES, OUTPUT_COLUMNS
+from sales_yuler.transformers.field_normalizers import (
+    normalize_date_text,
+    normalize_identifier_text,
+    normalize_key,
+    normalize_payment_method,
+    normalize_person_name,
+    normalize_phone_text,
+    normalize_text,
+    normalize_time_text,
+)
 
 
 def normalize_sales_rows(batch: WorksheetRows) -> list[dict[str, Any]]:
@@ -25,12 +34,19 @@ def normalize_sales_rows(batch: WorksheetRows) -> list[dict[str, Any]]:
 
         normalized = {column: row.get(column, "") for column in CANONICAL_COLUMNS}
         normalized["nro"] = len(normalized_rows) + 1
-        normalized["fecha"] = format_date_ddmmyyyy(sale_date)
+        normalized["fecha"] = normalize_date_text(sale_date)
         normalized["cantidad"] = _normalize_quantity(normalized["cantidad"])
+        normalized["descripcion"] = normalize_text(normalized["descripcion"])
+        normalized["tipo de joya"] = normalize_text(normalized["tipo de joya"])
+        normalized["tipo de material"] = normalize_text(normalized["tipo de material"])
         normalized["monto"] = _normalize_money(normalized["monto"])
         normalized["monto sin igv"] = _normalize_money(normalized["monto sin igv"])
-        normalized["dni"] = str(normalized["dni"]).strip()
-        normalized["telefono"] = str(normalized["telefono"]).strip()
+        normalized["metodo de pago"] = normalize_payment_method(normalized["metodo de pago"])
+        normalized["hora"] = normalize_time_text(normalized["hora"])
+        normalized["cliente"] = normalize_person_name(normalized["cliente"])
+        normalized["dni"] = normalize_identifier_text(normalized["dni"])
+        normalized["telefono"] = normalize_phone_text(normalized["telefono"])
+        normalized["encargado"] = normalize_person_name(normalized["encargado"])
         normalized["fuente"] = batch.source.name
         normalized["documento"] = batch.document_title
         normalized["hoja"] = batch.worksheet_title
@@ -44,43 +60,21 @@ def normalize_sales_rows(batch: WorksheetRows) -> list[dict[str, Any]]:
 def _normalize_row_keys(raw_row: dict[str, Any]) -> dict[str, Any]:
     row: dict[str, Any] = {}
     for key, value in raw_row.items():
-        canonical_key = COLUMN_ALIASES.get(_normalize_key(str(key)))
+        canonical_key = COLUMN_ALIASES.get(normalize_key(str(key)))
         if canonical_key:
             row[canonical_key] = value
     return row
 
 
-def _normalize_key(value: str) -> str:
-    value = _repair_mojibake(value)
-    without_accents = "".join(
-        char
-        for char in unicodedata.normalize("NFKD", value)
-        if not unicodedata.combining(char)
-    )
-    only_words = re.sub(r"[^a-zA-Z0-9]+", " ", without_accents)
-    cleaned = re.sub(r"\s+", " ", only_words.strip().lower())
-    return cleaned
-
-
-def _repair_mojibake(value: str) -> str:
-    if "Ã" not in value and "Â" not in value:
-        return value
-
-    try:
-        return value.encode("latin1").decode("utf-8")
-    except UnicodeError:
-        return value
-
-
 def _is_valid_sale_row(row: dict[str, Any]) -> bool:
-    description = str(row.get("descripcion", "")).strip()
+    description = normalize_text(row.get("descripcion", ""))
     amount = _money_as_decimal(row.get("monto", ""))
     return bool(description) and amount is not None and amount > 0
 
 
 def _is_cash_out_row(row: dict[str, Any]) -> bool:
     fields = ["descripcion", "cliente", "metodo de pago", "encargado"]
-    text = " ".join(str(row.get(field, "")).strip().lower() for field in fields)
+    text = " ".join(normalize_text(row.get(field, "")).lower() for field in fields)
     return "salida de caja" in text or "salidas de caja" in text
 
 
