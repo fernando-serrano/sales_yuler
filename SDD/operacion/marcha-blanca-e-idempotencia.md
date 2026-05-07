@@ -114,3 +114,9 @@ Implementacion:
 - planificacion `cron` en `UTC`;
 - validacion adicional de horario en el propio workflow;
 - posibilidad de excepcion manual con `force_run=true`.
+
+## Compatibilidad del Workflow
+
+Desde `2026-05-06`, el workflow de GitHub Actions debe usar acciones
+compatibles con Node 24 para evitar la deprecacion de Node 20 en runners
+administrados por GitHub.

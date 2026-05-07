@@ -90,6 +90,16 @@ Una corrida manual:
 - permite ajustar la ventana de lectura;
 - puede forzarse fuera de horario con `force_run=true`.
 
+## Compatibilidad con GitHub Actions
+
+Desde `2026-05-06`, el workflow usa versiones compatibles con Node 24:
+
+- `actions/checkout@v6`
+- `actions/setup-python@v6`
+
+Esto evita la advertencia de deprecacion asociada a Node 20 en runners de
+GitHub Actions.
+
 ## Como lanzar la primera corrida manual
 
 1. Ve a la pestaña `Actions` del repositorio.
