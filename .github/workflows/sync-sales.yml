@@ -12,8 +12,14 @@ on:
         required: false
         default: "3"
         type: string
+      force_run:
+        description: "Permite ejecutar manualmente fuera de la ventana horaria"
+        required: false
+        default: false
+        type: boolean
   schedule:
-    - cron: "0 10 * * *"
+    - cron: "0,30 15-23 * * *" # Ejecutar cada 30 minutos entre las 15:00 y 23:30 UTC (10:00-18:30 America/Lima)
+    - cron: "0,30 0-3 * * *" # Ejecutar cada 30 minutos entre las 00:00 y 03:30 UTC (19:00-22:30 America/Lima)
 
 concurrency:
   group: sync-sales-${{ github.ref }}
@@ -21,6 +27,7 @@ concurrency:
 
 jobs:
   test:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -47,12 +54,35 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: test
+    if: ${{ always() && (needs.test.result == 'success' || needs.test.result == 'skipped') }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate business window
+        id: business_window
+        shell: bash
+        env:
+          FORCE_RUN: ${{ inputs.force_run || 'false' }}
+        run: |
+          if [ "$FORCE_RUN" = "true" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Corrida manual forzada: se omite validacion de horario."
+            exit 0
+          fi
+
+          current_time=$(TZ=America/Lima date +%H:%M)
+          if [[ "$current_time" < "10:00" || "$current_time" > "22:30" ]]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Fuera de la ventana de negocio America/Lima (10:00-22:30)."
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Dentro de la ventana de negocio America/Lima."
+          fi
+
       - name: Setup Python
+        if: steps.business_window.outputs.should_run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -62,9 +92,11 @@ jobs:
             requirements-dev.txt
 
       - name: Install dependencies
+        if: steps.business_window.outputs.should_run == 'true'
         run: pip install -r requirements.txt
 
       - name: Run ETL
+        if: steps.business_window.outputs.should_run == 'true'
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           TARGET_SPREADSHEET_ID: ${{ secrets.TARGET_SPREADSHEET_ID }}

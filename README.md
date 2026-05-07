@@ -323,12 +323,22 @@ ejecutarse manualmente. Su modo recomendado es `append`.
 
 Comportamiento del workflow:
 
-- ejecuta `pytest` antes del ETL;
+- ejecuta `pytest` antes del ETL cuando la corrida es manual;
 - usa cache de dependencias Python;
 - evita corridas solapadas sobre la misma rama;
-- permite una corrida manual con ventana configurable.
+- permite una corrida manual con ventana configurable;
+- programa el ETL cada 30 minutos solo entre `10:00` y `22:30` en
+  `America/Lima`.
 
 Para una ejecucion manual en GitHub Actions puedes enviar:
 
 - `pipeline_lookback_days`
 - `pipeline_run_date`
+- `force_run`
+
+Detalle de horario:
+
+- La ventana de negocio es `10:00` a `22:30` hora de Lima.
+- GitHub Actions agenda con `cron` en `UTC`.
+- Desde `2026-05-06`, el workflow usa dos expresiones `cron` para cubrir esa
+  ventana local cada 30 minutos.

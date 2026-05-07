@@ -95,7 +95,22 @@ Para este proyecto, se recomienda:
 
 Para la operacion automatica en GitHub Actions:
 
-- el workflow debe ejecutar pruebas antes del ETL;
+- el workflow debe ejecutar pruebas antes del ETL en corridas manuales;
 - el ETL debe correr en modo `append`;
 - la ventana debe ser configurable por variables;
 - las corridas no deben solaparse sobre la misma rama.
+
+## Ventana Horaria de Ejecucion
+
+Desde `2026-05-06`, la automatizacion en GitHub Actions queda limitada al
+rango de negocio:
+
+- `10:00` a `22:30`
+- zona horaria `America/Lima`
+- frecuencia `cada 30 minutos`
+
+Implementacion:
+
+- planificacion `cron` en `UTC`;
+- validacion adicional de horario en el propio workflow;
+- posibilidad de excepcion manual con `force_run=true`.
