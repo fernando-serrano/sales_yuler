@@ -2,11 +2,11 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from sales_yuler.config import Settings, SourceConfig
-from sales_yuler.extractors import GoogleSheetsExtractor
-from sales_yuler.google_client import build_gspread_client
-from sales_yuler.loaders import GoogleSheetsLoader
-from sales_yuler.transformers import normalize_sales_rows
+from sales_yuler.domain.sales.transformations import normalize_sales_rows
+from sales_yuler.infrastructure.google.client import build_gspread_client
+from sales_yuler.infrastructure.google.sheets_extractor import GoogleSheetsExtractor
+from sales_yuler.infrastructure.google.sheets_loader import GoogleSheetsLoader
+from sales_yuler.infrastructure.settings import Settings, SourceConfig
 
 
 logger = logging.getLogger(__name__)
@@ -46,12 +46,12 @@ def run_pipeline(settings: Settings, sources: list[SourceConfig], mode: str) -> 
             )
             all_rows.extend(normalized_rows)
 
-    _assign_record_ids(all_rows)
+    assign_record_ids(all_rows)
     logger.info("Cargando %s filas en modo %s", len(all_rows), mode)
     rows_loaded = loader.load(all_rows, mode=mode)
     return PipelineResult(rows_loaded=rows_loaded, sources_processed=len(sources))
 
 
-def _assign_record_ids(rows: list[dict[str, Any]]) -> None:
+def assign_record_ids(rows: list[dict[str, Any]]) -> None:
     for index, row in enumerate(rows, start=1):
         row["id registro"] = index

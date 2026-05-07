@@ -3,10 +3,8 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sales_yuler.date_utils import date_from_worksheet_title
-from sales_yuler.extractors.google_sheets import WorksheetRows
-from sales_yuler.schema import CANONICAL_COLUMNS, COLUMN_ALIASES, OUTPUT_COLUMNS
-from sales_yuler.transformers.field_normalizers import (
+from sales_yuler.domain.dates import date_from_worksheet_title
+from sales_yuler.domain.sales.field_normalizers import (
     normalize_date_text,
     normalize_identifier_text,
     normalize_key,
@@ -16,9 +14,11 @@ from sales_yuler.transformers.field_normalizers import (
     normalize_text,
     normalize_time_text,
 )
+from sales_yuler.domain.sales.models import SalesBatch
+from sales_yuler.domain.schema import CANONICAL_COLUMNS, COLUMN_ALIASES, OUTPUT_COLUMNS
 
 
-def normalize_sales_rows(batch: WorksheetRows) -> list[dict[str, Any]]:
+def normalize_sales_rows(batch: SalesBatch) -> list[dict[str, Any]]:
     sale_date = date_from_worksheet_title(
         batch.source.year,
         batch.source.month,

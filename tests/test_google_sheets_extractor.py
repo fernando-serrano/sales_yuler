@@ -1,5 +1,8 @@
-from sales_yuler.config import SourceConfig
-from sales_yuler.extractors.google_sheets import _records_from_values, _worksheet_belongs_to_source_month
+from sales_yuler.infrastructure.google.sheets_extractor import (
+    _records_from_values,
+    _worksheet_belongs_to_source_month,
+)
+from sales_yuler.infrastructure.settings import SourceConfig
 
 
 def test_worksheet_belongs_to_source_month_accepts_only_matching_full_dates():

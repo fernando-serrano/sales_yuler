@@ -3,7 +3,7 @@ from typing import Any
 
 import gspread
 
-from sales_yuler.schema import OUTPUT_COLUMNS
+from sales_yuler.domain.schema import OUTPUT_COLUMNS
 
 
 logger = logging.getLogger(__name__)

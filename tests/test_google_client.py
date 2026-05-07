@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from sales_yuler.google_client import _load_service_account_info
+from sales_yuler.infrastructure.google.client import _load_service_account_info
 
 
 def test_load_service_account_info_prefers_valid_json_string():

@@ -1,4 +1,4 @@
-from sales_yuler.cli import main
+from sales_yuler.interfaces.cli import main
 
 
 if __name__ == "__main__":

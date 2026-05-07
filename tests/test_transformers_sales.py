@@ -1,6 +1,6 @@
-from sales_yuler.config import SourceConfig
-from sales_yuler.extractors.google_sheets import WorksheetRows
-from sales_yuler.transformers.sales import normalize_sales_rows
+from sales_yuler.domain.sales.transformations import normalize_sales_rows
+from sales_yuler.infrastructure.google.sheets_extractor import WorksheetRows
+from sales_yuler.infrastructure.settings import SourceConfig
 
 
 def test_normalize_sales_rows_maps_aliases_and_metadata():

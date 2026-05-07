@@ -3,9 +3,9 @@ import logging
 
 from dotenv import load_dotenv
 
-from sales_yuler.config import load_settings, load_sources
+from sales_yuler.application.pipeline import run_pipeline
+from sales_yuler.infrastructure.settings import load_settings, load_sources
 from sales_yuler.logging_config import configure_logging, create_run_log_dir
-from sales_yuler.pipeline import run_pipeline
 
 
 logger = logging.getLogger(__name__)

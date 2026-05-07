@@ -8,9 +8,10 @@ from typing import Any
 import gspread
 from gspread.exceptions import APIError
 
-from sales_yuler.config import SourceConfig
-from sales_yuler.date_utils import worksheet_title_belongs_to_month
-from sales_yuler.schema import COLUMN_ALIASES
+from sales_yuler.domain.dates import worksheet_title_belongs_to_month
+from sales_yuler.domain.schema import COLUMN_ALIASES
+from sales_yuler.domain.sales.models import SalesBatch
+from sales_yuler.infrastructure.settings import SourceConfig
 
 
 logger = logging.getLogger(__name__)
@@ -20,11 +21,8 @@ QUOTA_RETRY_SECONDS = 65
 
 
 @dataclass(frozen=True)
-class WorksheetRows:
-    source: SourceConfig
-    document_title: str
-    worksheet_title: str
-    rows: list[dict[str, str]]
+class WorksheetRows(SalesBatch):
+    pass
 
 
 class GoogleSheetsExtractor:
@@ -157,10 +155,27 @@ def _repair_mojibake(value: str) -> str:
     if "Ã" not in value and "Â" not in value:
         return value
 
-    try:
-        return value.encode("latin1").decode("utf-8")
-    except UnicodeError:
-        return value
+    repaired = value
+    for _ in range(3):
+        if "Ã" not in repaired and "Â" not in repaired:
+            break
+
+        candidate = None
+        for source_encoding in ("cp1252", "latin1"):
+            try:
+                candidate = repaired.encode(source_encoding).decode("utf-8")
+                break
+            except UnicodeError:
+                continue
+
+        if candidate is None:
+            break
+
+        if candidate == repaired:
+            break
+        repaired = candidate
+
+    return repaired
 
 
 def _unique_headers(headers: list[Any]) -> list[str]:
