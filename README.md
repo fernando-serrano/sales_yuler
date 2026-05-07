@@ -2,6 +2,13 @@
 
 ETL modular para consolidar ventas desde varios Google Sheets/Excel con muchas hojas diarias hacia una hoja maestra de Google Sheets consumible por Looker Studio.
 
+## Documentacion de diseno
+
+La documentacion formal de arquitectura y diseno vive en:
+
+- `docs/architecture.md`
+- `SDD/README.md`
+
 ## Flujo
 
 1. Lee las fuentes declaradas en `config/sources.yml`.

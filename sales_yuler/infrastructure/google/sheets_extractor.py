@@ -11,11 +11,14 @@ from gspread.exceptions import APIError
 from sales_yuler.domain.dates import worksheet_title_belongs_to_month
 from sales_yuler.domain.schema import COLUMN_ALIASES
 from sales_yuler.domain.sales.models import SalesBatch
+from sales_yuler.infrastructure.google.rate_limit import (
+    RequestRateLimiter,
+    build_read_rate_limiter,
+)
 from sales_yuler.infrastructure.settings import SourceConfig
 
 
 logger = logging.getLogger(__name__)
-READ_DELAY_SECONDS = 1.3
 MAX_READ_ATTEMPTS = 5
 QUOTA_RETRY_SECONDS = 65
 
@@ -26,15 +29,21 @@ class WorksheetRows(SalesBatch):
 
 
 class GoogleSheetsExtractor:
-    def __init__(self, client: gspread.Client) -> None:
+    def __init__(
+        self,
+        client: gspread.Client,
+        rate_limiter: RequestRateLimiter | None = None,
+    ) -> None:
         self._client = client
+        self._rate_limiter = rate_limiter or build_read_rate_limiter()
 
     def extract_source(self, source: SourceConfig) -> list[WorksheetRows]:
-        spreadsheet = self._client.open_by_url(source.url)
+        spreadsheet = _rate_limited_call(self._rate_limiter, self._client.open_by_url, source.url)
         batches: list[WorksheetRows] = []
         logger.info("Documento abierto: %s", spreadsheet.title)
 
-        for worksheet in spreadsheet.worksheets():
+        worksheets = _rate_limited_call(self._rate_limiter, spreadsheet.worksheets)
+        for worksheet in worksheets:
             if not _worksheet_belongs_to_source_month(source, worksheet.title):
                 logger.info(
                     "Hoja omitida por no pertenecer al mes configurado: fuente=%s year=%s month=%s hoja=%s",
@@ -45,8 +54,7 @@ class GoogleSheetsExtractor:
                 )
                 continue
 
-            time.sleep(READ_DELAY_SECONDS)
-            rows = _records_from_values(_get_all_values_with_retry(worksheet))
+            rows = _records_from_values(_get_all_values_with_retry(worksheet, self._rate_limiter))
             logger.info("Hoja leida: %s filas=%s", worksheet.title, len(rows))
             if not rows:
                 continue
@@ -67,10 +75,14 @@ def _worksheet_belongs_to_source_month(source: SourceConfig, worksheet_title: st
     return worksheet_title_belongs_to_month(source.year, source.month, worksheet_title)
 
 
-def _get_all_values_with_retry(worksheet: Any) -> list[list[Any]]:
+def _get_all_values_with_retry(
+    worksheet: Any,
+    rate_limiter: RequestRateLimiter | None = None,
+) -> list[list[Any]]:
+    limiter = rate_limiter or build_read_rate_limiter()
     for attempt in range(1, MAX_READ_ATTEMPTS + 1):
         try:
-            return worksheet.get_all_values()
+            return _rate_limited_call(limiter, worksheet.get_all_values)
         except APIError as error:
             if not _is_quota_error(error) or attempt == MAX_READ_ATTEMPTS:
                 raise
@@ -86,6 +98,11 @@ def _get_all_values_with_retry(worksheet: Any) -> list[list[Any]]:
             time.sleep(wait_seconds)
 
     return []
+
+
+def _rate_limited_call(rate_limiter: RequestRateLimiter, func, *args, **kwargs):
+    rate_limiter.wait_for_slot()
+    return func(*args, **kwargs)
 
 
 def _is_quota_error(error: APIError) -> bool:
