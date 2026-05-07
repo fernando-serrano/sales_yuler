@@ -7,6 +7,7 @@ ETL modular para consolidar ventas desde varios Google Sheets/Excel con muchas h
 La documentacion formal de arquitectura y diseno vive en:
 
 - `docs/architecture.md`
+- `docs/github-actions.md`
 - `SDD/README.md`
 
 ## Modo operativo actual
