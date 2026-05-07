@@ -1,6 +1,6 @@
 import calendar
 import re
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 
@@ -31,6 +31,40 @@ def worksheet_title_belongs_to_month(year: int, month: int, worksheet_title: Any
 
     _, month_days = calendar.monthrange(year, month)
     return 1 <= day <= month_days
+
+
+def worksheet_title_belongs_to_window(
+    year: int,
+    month: int,
+    worksheet_title: Any,
+    start_date: date,
+    end_date: date,
+) -> bool:
+    worksheet_date = date_from_worksheet_title(year, month, worksheet_title)
+    if worksheet_date is None:
+        return False
+
+    return start_date <= worksheet_date <= end_date
+
+
+def build_processing_window(end_date: date, lookback_days: int) -> tuple[date, date]:
+    if lookback_days < 0:
+        raise ValueError("lookback_days no puede ser negativo")
+
+    start_date = end_date - timedelta(days=lookback_days)
+    return start_date, end_date
+
+
+def source_month_intersects_window(
+    year: int,
+    month: int,
+    start_date: date,
+    end_date: date,
+) -> bool:
+    month_start = date(year, month, 1)
+    _, month_days = calendar.monthrange(year, month)
+    month_end = date(year, month, month_days)
+    return not (month_end < start_date or month_start > end_date)
 
 
 def parse_full_date_text(value: Any) -> date | None:

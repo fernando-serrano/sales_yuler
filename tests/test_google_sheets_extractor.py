@@ -1,8 +1,27 @@
+from datetime import date
+
 from sales_yuler.infrastructure.google.sheets_extractor import (
+    _is_retryable_read_error,
     _records_from_values,
+    _retry_wait_seconds,
+    _worksheet_should_be_processed,
     _worksheet_belongs_to_source_month,
 )
 from sales_yuler.infrastructure.settings import SourceConfig
+
+
+class _FakeResponse:
+    def __init__(self, status_code: int, headers: dict[str, str] | None = None) -> None:
+        self.status_code = status_code
+        self.headers = headers or {}
+
+
+class _FakeAPIError(Exception):
+    def __init__(self, status_code: int, headers: dict[str, str] | None = None) -> None:
+        self.response = _FakeResponse(status_code, headers=headers)
+
+    def __str__(self) -> str:
+        return f"APIError: [{self.response.status_code}]"
 
 
 def test_worksheet_belongs_to_source_month_accepts_only_matching_full_dates():
@@ -86,3 +105,30 @@ def test_records_from_values_detects_headers_after_title_row():
             "Salidas de caja": "",
         }
     ]
+
+
+def test_retryable_read_error_accepts_transient_google_failures():
+    assert _is_retryable_read_error(_FakeAPIError(429)) is True
+    assert _is_retryable_read_error(_FakeAPIError(503)) is True
+    assert _is_retryable_read_error(_FakeAPIError(500)) is True
+    assert _is_retryable_read_error(_FakeAPIError(400)) is False
+
+
+def test_retry_wait_seconds_uses_fixed_backoff_for_transient_errors():
+    assert _retry_wait_seconds(_FakeAPIError(503)) == 10
+
+
+def test_retry_wait_seconds_uses_retry_after_for_quota_errors():
+    assert _retry_wait_seconds(_FakeAPIError(429, headers={"Retry-After": "70"})) == 70
+
+
+def test_worksheet_should_be_processed_uses_window_when_present():
+    source = SourceConfig(
+        name="ventas_2026_05",
+        url="https://docs.google.com/spreadsheets/d/example/edit",
+        year=2026,
+        month=5,
+    )
+
+    assert _worksheet_should_be_processed(source, "04", date(2026, 5, 3), date(2026, 5, 6))
+    assert not _worksheet_should_be_processed(source, "02", date(2026, 5, 3), date(2026, 5, 6))

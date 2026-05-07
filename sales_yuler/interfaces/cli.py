@@ -19,8 +19,8 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument(
         "--mode",
         choices=["replace", "append"],
-        default="replace",
-        help="replace limpia la hoja destino antes de cargar; append agrega al final.",
+        default="append",
+        help="append agrega solo filas nuevas con validacion de duplicados; replace rehace la hoja completa.",
     )
 
     return parser

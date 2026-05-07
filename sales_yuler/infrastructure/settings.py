@@ -1,4 +1,5 @@
 import os
+from datetime import date
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,8 @@ class Settings:
     target_spreadsheet_id: str
     target_worksheet_name: str
     sources_config: Path
+    processing_date: date
+    lookback_days: int
 
 
 @dataclass(frozen=True)
@@ -35,6 +38,8 @@ def load_settings() -> Settings:
     target_spreadsheet_id = _required_env("TARGET_SPREADSHEET_ID")
     target_worksheet_name = os.getenv("TARGET_WORKSHEET_NAME", "ventas_consolidado")
     sources_config = Path(os.getenv("SOURCES_CONFIG", "config/sources.yml"))
+    processing_date = _optional_date_env("PIPELINE_RUN_DATE") or date.today()
+    lookback_days = int(os.getenv("PIPELINE_LOOKBACK_DAYS", "3"))
 
     return Settings(
         google_service_account_json=service_account_json,
@@ -42,6 +47,8 @@ def load_settings() -> Settings:
         target_spreadsheet_id=target_spreadsheet_id,
         target_worksheet_name=target_worksheet_name,
         sources_config=sources_config,
+        processing_date=processing_date,
+        lookback_days=lookback_days,
     )
 
 
@@ -80,3 +87,11 @@ def _optional_env(name: str) -> str | None:
 
     stripped = value.strip()
     return stripped or None
+
+
+def _optional_date_env(name: str) -> date | None:
+    value = _optional_env(name)
+    if value is None:
+        return None
+
+    return date.fromisoformat(value)

@@ -3,12 +3,13 @@ import re
 import time
 import unicodedata
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 import gspread
 from gspread.exceptions import APIError
 
-from sales_yuler.domain.dates import worksheet_title_belongs_to_month
+from sales_yuler.domain.dates import worksheet_title_belongs_to_month, worksheet_title_belongs_to_window
 from sales_yuler.domain.schema import COLUMN_ALIASES
 from sales_yuler.domain.sales.models import SalesBatch
 from sales_yuler.infrastructure.google.rate_limit import (
@@ -21,6 +22,8 @@ from sales_yuler.infrastructure.settings import SourceConfig
 logger = logging.getLogger(__name__)
 MAX_READ_ATTEMPTS = 5
 QUOTA_RETRY_SECONDS = 65
+TRANSIENT_RETRY_SECONDS = 10
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
 @dataclass(frozen=True)
@@ -38,15 +41,23 @@ class GoogleSheetsExtractor:
         self._rate_limiter = rate_limiter or build_read_rate_limiter()
 
     def extract_source(self, source: SourceConfig) -> list[WorksheetRows]:
+        return self.extract_source_with_window(source=source, start_date=None, end_date=None)
+
+    def extract_source_with_window(
+        self,
+        source: SourceConfig,
+        start_date: date | None,
+        end_date: date | None,
+    ) -> list[WorksheetRows]:
         spreadsheet = _rate_limited_call(self._rate_limiter, self._client.open_by_url, source.url)
         batches: list[WorksheetRows] = []
         logger.info("Documento abierto: %s", spreadsheet.title)
 
         worksheets = _rate_limited_call(self._rate_limiter, spreadsheet.worksheets)
         for worksheet in worksheets:
-            if not _worksheet_belongs_to_source_month(source, worksheet.title):
+            if not _worksheet_should_be_processed(source, worksheet.title, start_date, end_date):
                 logger.info(
-                    "Hoja omitida por no pertenecer al mes configurado: fuente=%s year=%s month=%s hoja=%s",
+                    "Hoja omitida por no pertenecer a la ventana configurada: fuente=%s year=%s month=%s hoja=%s",
                     source.name,
                     source.year,
                     source.month,
@@ -75,6 +86,24 @@ def _worksheet_belongs_to_source_month(source: SourceConfig, worksheet_title: st
     return worksheet_title_belongs_to_month(source.year, source.month, worksheet_title)
 
 
+def _worksheet_should_be_processed(
+    source: SourceConfig,
+    worksheet_title: str,
+    start_date: date | None,
+    end_date: date | None,
+) -> bool:
+    if start_date is None or end_date is None:
+        return _worksheet_belongs_to_source_month(source, worksheet_title)
+
+    return worksheet_title_belongs_to_window(
+        source.year,
+        source.month,
+        worksheet_title,
+        start_date,
+        end_date,
+    )
+
+
 def _get_all_values_with_retry(
     worksheet: Any,
     rate_limiter: RequestRateLimiter | None = None,
@@ -84,17 +113,28 @@ def _get_all_values_with_retry(
         try:
             return _rate_limited_call(limiter, worksheet.get_all_values)
         except APIError as error:
-            if not _is_quota_error(error) or attempt == MAX_READ_ATTEMPTS:
+            if not _is_retryable_read_error(error) or attempt == MAX_READ_ATTEMPTS:
                 raise
 
             wait_seconds = _retry_wait_seconds(error)
-            logger.warning(
-                "Cuota de lectura excedida al leer hoja=%s. Reintentando en %s segundos (%s/%s)",
-                worksheet.title,
-                wait_seconds,
-                attempt,
-                MAX_READ_ATTEMPTS,
-            )
+            status_code = _status_code_from_error(error)
+            if status_code == 429:
+                logger.warning(
+                    "Cuota de lectura excedida al leer hoja=%s. Reintentando en %s segundos (%s/%s)",
+                    worksheet.title,
+                    wait_seconds,
+                    attempt,
+                    MAX_READ_ATTEMPTS,
+                )
+            else:
+                logger.warning(
+                    "Fallo transitorio al leer hoja=%s status=%s. Reintentando en %s segundos (%s/%s)",
+                    worksheet.title,
+                    status_code,
+                    wait_seconds,
+                    attempt,
+                    MAX_READ_ATTEMPTS,
+                )
             time.sleep(wait_seconds)
 
     return []
@@ -105,13 +145,30 @@ def _rate_limited_call(rate_limiter: RequestRateLimiter, func, *args, **kwargs):
     return func(*args, **kwargs)
 
 
+def _is_retryable_read_error(error: APIError) -> bool:
+    status_code = _status_code_from_error(error)
+    return status_code in RETRYABLE_STATUS_CODES
+
+
 def _is_quota_error(error: APIError) -> bool:
+    status_code = _status_code_from_error(error)
+    return status_code == 429
+
+
+def _status_code_from_error(error: APIError) -> int | None:
     response = getattr(error, "response", None)
     status_code = getattr(response, "status_code", None)
-    return status_code == 429 or "[429]" in str(error)
+    if status_code is not None:
+        return status_code
+
+    match = re.search(r"\[(\d{3})\]", str(error))
+    return int(match.group(1)) if match else None
 
 
 def _retry_wait_seconds(error: APIError) -> int:
+    if not _is_quota_error(error):
+        return TRANSIENT_RETRY_SECONDS
+
     response = getattr(error, "response", None)
     headers = getattr(response, "headers", {}) or {}
     retry_after = headers.get("Retry-After")

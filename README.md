@@ -9,6 +9,25 @@ La documentacion formal de arquitectura y diseno vive en:
 - `docs/architecture.md`
 - `SDD/README.md`
 
+## Modo operativo actual
+
+Desde el `2026-05-06`, el modo recomendado para ejecucion automatica es
+`append` con validacion de duplicados.
+
+Esto significa:
+
+- el pipeline ya no debe sobreescribir el consolidado en cada corrida;
+- los registros existentes se validan antes de insertar;
+- solo se agregan filas nuevas;
+- `replace` queda reservado para recuperacion o reprocesos controlados.
+
+Ademas, desde el `2026-05-06`, la lectura opera con una ventana deslizante para
+evitar reprocesar meses completos innecesariamente.
+
+- valor por defecto: `hoy - 3 dias` a `hoy`
+- variable configurable: `PIPELINE_LOOKBACK_DAYS`
+- fecha de referencia configurable: `PIPELINE_RUN_DATE`
+
 ## Flujo
 
 1. Lee las fuentes declaradas en `config/sources.yml`.
@@ -43,8 +62,8 @@ El proceso tambien agrega:
 - `fecha de carga`
 
 `id registro` es un consecutivo global generado por el ETL para identificar cada
-fila del consolidado. `nro` es el correlativo de ventas validas dentro de cada
-dia/pestana.
+fila nueva del consolidado. `nro` es el correlativo de ventas validas dentro de
+cada dia/pestana.
 
 ## Normalizacion de ventas
 
@@ -151,6 +170,25 @@ cargo el registro al consolidado.
 - `hoja`: nombre de la pestana de origen.
 - `fecha de carga`: fecha y hora de ejecucion del ETL.
 
+### 6. Deteccion de duplicados
+
+En modo `append`, el ETL compara cada fila normalizada contra los registros ya
+existentes en la hoja destino.
+
+La validacion usa una clave de negocio derivada de:
+
+- `fecha`
+- `fuente`
+- `documento`
+- `hoja`
+- `hora`
+- `descripcion`
+- `monto`
+- `cliente`
+
+Si un registro ya existe, se omite. Si no existe, se inserta y recibe un nuevo
+`id registro`.
+
 La hoja destino debe tener estos campos:
 
 ```text
@@ -171,6 +209,7 @@ Copy-Item .env.example .env
 GOOGLE_SERVICE_ACCOUNT_FILE=secrets/ventas-joyas-bot-a7644f88f7d0.json
 TARGET_SPREADSHEET_ID=1AMGRZ9vdJPXTHCvPLdu9Q954CkWU2tdsZ6VicGmGAbo
 TARGET_WORKSHEET_NAME=ventas_consolidado
+PIPELINE_LOOKBACK_DAYS=3
 ```
 
 3. Crea un entorno virtual `.venv`:
@@ -210,7 +249,22 @@ permiso de edicion sobre la hoja destino.
 7. Ejecuta:
 
 ```powershell
+python -m sales_yuler run
+```
+
+El modo por defecto es `append`. Si necesitas rehacer completamente la hoja
+destino, puedes usar:
+
+```powershell
 python -m sales_yuler run --mode replace
+```
+
+Para una corrida controlada con fecha fija y ventana explicita:
+
+```powershell
+$env:PIPELINE_RUN_DATE="2026-05-06"
+$env:PIPELINE_LOOKBACK_DAYS="3"
+python -m sales_yuler run
 ```
 
 Cada ejecucion crea una carpeta en `logs/` con el formato `dd-mm-aaaa hh-mm-ss`
@@ -260,4 +314,4 @@ completo del JSON de la cuenta de servicio en el secret
 `GOOGLE_SERVICE_ACCOUNT_JSON`.
 
 El workflow `.github/workflows/sync-sales.yml` corre diariamente y tambien puede
-ejecutarse manualmente.
+ejecutarse manualmente. Su modo recomendado es `append`.

@@ -2,6 +2,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+from sales_yuler.domain.dates import build_processing_window, source_month_intersects_window
+from sales_yuler.domain.sales.deduplication import filter_new_rows
 from sales_yuler.domain.sales.transformations import normalize_sales_rows
 from sales_yuler.infrastructure.google.client import build_gspread_client
 from sales_yuler.infrastructure.google.rate_limit import build_read_rate_limiter, build_write_rate_limiter
@@ -36,10 +38,36 @@ def run_pipeline(settings: Settings, sources: list[SourceConfig], mode: str) -> 
         write_rate_limiter=write_rate_limiter,
     )
 
+    window_start, window_end = build_processing_window(
+        end_date=settings.processing_date,
+        lookback_days=settings.lookback_days,
+    )
+    eligible_sources = [
+        source
+        for source in sources
+        if source_month_intersects_window(
+            source.year,
+            source.month,
+            start_date=window_start,
+            end_date=window_end,
+        )
+    ]
+    logger.info(
+        "Ventana de procesamiento: desde=%s hasta=%s fuentes_elegibles=%s fuentes_totales=%s",
+        window_start,
+        window_end,
+        len(eligible_sources),
+        len(sources),
+    )
+
     all_rows = []
-    for source in sources:
+    for source in eligible_sources:
         logger.info("Extrayendo fuente: %s", source.name)
-        for batch in extractor.extract_source(source):
+        for batch in extractor.extract_source_with_window(
+            source=source,
+            start_date=window_start,
+            end_date=window_end,
+        ):
             normalized_rows = normalize_sales_rows(batch)
             logger.info(
                 "Hoja procesada: fuente=%s documento=%s hoja=%s filas_entrada=%s filas_salida=%s",
@@ -51,12 +79,26 @@ def run_pipeline(settings: Settings, sources: list[SourceConfig], mode: str) -> 
             )
             all_rows.extend(normalized_rows)
 
-    assign_record_ids(all_rows)
-    logger.info("Cargando %s filas en modo %s", len(all_rows), mode)
-    rows_loaded = loader.load(all_rows, mode=mode)
-    return PipelineResult(rows_loaded=rows_loaded, sources_processed=len(sources))
+    rows_to_load = all_rows
+    if mode == "append":
+        existing_rows = loader.read_existing_rows()
+        rows_to_load, duplicates_skipped = filter_new_rows(all_rows, existing_rows)
+        next_record_id = loader.next_record_id()
+        assign_record_ids(rows_to_load, start=next_record_id + 1)
+        logger.info(
+            "Append idempotente: filas_entrada=%s duplicados_omitidos=%s filas_nuevas=%s",
+            len(all_rows),
+            duplicates_skipped,
+            len(rows_to_load),
+        )
+    else:
+        assign_record_ids(rows_to_load)
+
+    logger.info("Cargando %s filas en modo %s", len(rows_to_load), mode)
+    rows_loaded = loader.load(rows_to_load, mode=mode)
+    return PipelineResult(rows_loaded=rows_loaded, sources_processed=len(eligible_sources))
 
 
-def assign_record_ids(rows: list[dict[str, Any]]) -> None:
-    for index, row in enumerate(rows, start=1):
+def assign_record_ids(rows: list[dict[str, Any]], start: int = 1) -> None:
+    for index, row in enumerate(rows, start=start):
         row["id registro"] = index
