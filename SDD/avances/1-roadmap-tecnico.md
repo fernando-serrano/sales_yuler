@@ -23,7 +23,7 @@
 - Alertas por fallos de extraccion o escritura.
 - Reporte de calidad de datos por corrida.
 
-## Fase 4. Persistencia intermedia
+## Fase 4. Persistencia Intermedia
 
 - Agregar zona `raw/` para extraccion cruda.
 - Agregar zona `staging/` para datos normalizados.

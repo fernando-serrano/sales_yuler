@@ -309,9 +309,26 @@ Configura estos secrets en GitHub:
 - `TARGET_SPREADSHEET_ID`
 - `TARGET_WORKSHEET_NAME`
 
+Variables opcionales para controlar la ventana:
+
+- `PIPELINE_LOOKBACK_DAYS`
+- `PIPELINE_RUN_DATE`
+
 Para GitHub Actions no subas el archivo `secrets/*.json`. Copia el contenido
 completo del JSON de la cuenta de servicio en el secret
 `GOOGLE_SERVICE_ACCOUNT_JSON`.
 
 El workflow `.github/workflows/sync-sales.yml` corre diariamente y tambien puede
 ejecutarse manualmente. Su modo recomendado es `append`.
+
+Comportamiento del workflow:
+
+- ejecuta `pytest` antes del ETL;
+- usa cache de dependencias Python;
+- evita corridas solapadas sobre la misma rama;
+- permite una corrida manual con ventana configurable.
+
+Para una ejecucion manual en GitHub Actions puedes enviar:
+
+- `pipeline_lookback_days`
+- `pipeline_run_date`
