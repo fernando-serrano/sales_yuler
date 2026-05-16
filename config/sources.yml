@@ -135,8 +135,8 @@ sources:
     year: 2026
     month: 3
     enabled: true
-  - name: ventas_prueba_2026_05
-    url: "https://docs.google.com/spreadsheets/d/1Lvr6Zy-tDtHlpUQFBKlgM1iY8FM4r8l6Vn6-tGVVHvQ/edit?gid=1552053166#gid=1552053166"
+  - name: ventas_2026_05
+    url: "https://docs.google.com/spreadsheets/d/1C2RDtyfJpcpdM5JIDtAVLW_1jhhMg_baEt0Fk-4jFpg/edit?gid=1634563300#gid=1634563300"
     year: 2026
     month: 5
     enabled: true
