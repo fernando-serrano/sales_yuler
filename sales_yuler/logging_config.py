@@ -18,7 +18,7 @@ def create_run_log_dir(
     return run_log_dir
 
 
-def configure_logging(run_log_dir: Path) -> Path:
+def configure_logging(run_log_dir: Path, console: bool = True) -> Path:
     log_file = run_log_dir / "sales_yuler.log"
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
@@ -36,9 +36,10 @@ def configure_logging(run_log_dir: Path) -> Path:
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
 
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
-    root_logger.addHandler(stream_handler)
+    if console:
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        root_logger.addHandler(stream_handler)
 
     return log_file
 

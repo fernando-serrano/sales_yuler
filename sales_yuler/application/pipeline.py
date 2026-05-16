@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from sales_yuler.domain.dates import build_processing_window, source_month_intersects_window
 from sales_yuler.domain.sales.deduplication import filter_new_rows
@@ -15,13 +15,29 @@ from sales_yuler.infrastructure.settings import Settings, SourceConfig
 logger = logging.getLogger(__name__)
 
 
+class ProgressReporter(Protocol):
+    def update(self, step: int, label: str) -> None: ...
+
+    def advance(self, label: str) -> None: ...
+
+    def finish(self, label: str = "Completado") -> None: ...
+
+
 @dataclass(frozen=True)
 class PipelineResult:
     rows_loaded: int
     sources_processed: int
 
 
-def run_pipeline(settings: Settings, sources: list[SourceConfig], mode: str) -> PipelineResult:
+def run_pipeline(
+    settings: Settings,
+    sources: list[SourceConfig],
+    mode: str,
+    progress: ProgressReporter | None = None,
+) -> PipelineResult:
+    if progress:
+        progress.update(0, "Conectando con Google Sheets")
+
     logger.info("Construyendo cliente de Google Sheets")
     client = build_gspread_client(
         service_account_json=settings.google_service_account_json,
@@ -59,9 +75,14 @@ def run_pipeline(settings: Settings, sources: list[SourceConfig], mode: str) -> 
         len(eligible_sources),
         len(sources),
     )
+    if progress:
+        progress.update(1, f"Fuentes elegibles: {len(eligible_sources)}")
 
     all_rows = []
-    for source in eligible_sources:
+    for source_index, source in enumerate(eligible_sources, start=1):
+        if progress:
+            progress.update(source_index + 1, f"Extrayendo {source.name}")
+
         logger.info("Extrayendo fuente: %s", source.name)
         for batch in extractor.extract_source_with_window(
             source=source,
@@ -78,6 +99,12 @@ def run_pipeline(settings: Settings, sources: list[SourceConfig], mode: str) -> 
                 len(normalized_rows),
             )
             all_rows.extend(normalized_rows)
+
+        if progress:
+            progress.update(source_index + 1, f"Procesada {source.name}")
+
+    if progress:
+        progress.update(len(eligible_sources) + 1, "Preparando carga")
 
     rows_to_load = all_rows
     if mode == "append":
@@ -96,6 +123,9 @@ def run_pipeline(settings: Settings, sources: list[SourceConfig], mode: str) -> 
 
     logger.info("Cargando %s filas en modo %s", len(rows_to_load), mode)
     rows_loaded = loader.load(rows_to_load, mode=mode)
+    if progress:
+        progress.finish(f"Completado: {rows_loaded} filas")
+
     return PipelineResult(rows_loaded=rows_loaded, sources_processed=len(eligible_sources))
 
 
